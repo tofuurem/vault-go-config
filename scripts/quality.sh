@@ -1,0 +1,13 @@
+#!/bin/sh
+
+set -eu
+
+./scripts/fast-check.sh
+
+packages="$(go list ./...)"
+if [ -n "$packages" ]; then
+	go test -race -coverprofile=coverage.out ./...
+	go build ./...
+	go tool staticcheck ./...
+	go tool govulncheck ./...
+fi
