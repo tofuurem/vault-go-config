@@ -27,6 +27,20 @@ var (
 	ErrJSONMalformed = errors.New("vltconfig: malformed JSON")
 	// ErrJSONStructure reports a JSON document whose root is not an object.
 	ErrJSONStructure = errors.New("vltconfig: invalid JSON structure")
+	// ErrVault is the root category for a configured Vault source failure.
+	ErrVault = errors.New("vltconfig: Vault source error")
+	// ErrVaultConfiguration reports partial or invalid Vault environment configuration.
+	ErrVaultConfiguration = errors.New("vltconfig: Vault configuration error")
+	// ErrVaultAuthentication reports that every configured auth method was rejected.
+	ErrVaultAuthentication = errors.New("vltconfig: Vault authentication error")
+	// ErrVaultAuthorization reports denied access to the configured secret.
+	ErrVaultAuthorization = errors.New("vltconfig: Vault authorization error")
+	// ErrVaultPathNotFound reports an absent or deleted KV v2 secret path.
+	ErrVaultPathNotFound = errors.New("vltconfig: Vault path not found")
+	// ErrVaultUnavailable reports an exhausted transient Vault failure.
+	ErrVaultUnavailable = errors.New("vltconfig: Vault unavailable")
+	// ErrVaultResponse reports a Vault response that cannot be consumed safely.
+	ErrVaultResponse = errors.New("vltconfig: malformed Vault response")
 )
 
 // SchemaError identifies a safe path and schema rule that could not be
@@ -138,4 +152,43 @@ func (e *JSONError) Error() string {
 // categories.
 func (e *JSONError) Is(target error) bool {
 	return target == e.kind || target == ErrJSON || target == ErrConfig
+}
+
+// VaultError contains only safe operational context. It never retains a raw
+// credential, response body, address, or upstream error message.
+type VaultError struct {
+	Operation string
+	Mount     string
+	Path      string
+	CauseType string
+	kind      error
+}
+
+func (e *VaultError) Error() string {
+	context := ""
+	if e.Mount != "" || e.Path != "" {
+		context = fmt.Sprintf(" for mount %q, path %q", e.Mount, e.Path)
+	}
+	switch e.kind {
+	case ErrVaultConfiguration:
+		return "Vault configuration is partial or invalid"
+	case ErrVaultAuthentication:
+		return "Vault authentication failed"
+	case ErrVaultAuthorization:
+		return "Vault access was denied" + context
+	case ErrVaultPathNotFound:
+		return "Vault secret was not found" + context
+	case ErrVaultUnavailable:
+		return "Vault is unavailable"
+	case ErrVaultResponse:
+		return "Vault returned an invalid response" + context
+	default:
+		return "Vault source failed" + context
+	}
+}
+
+// Is supports the specific Vault kind, Vault source, and root configuration
+// categories.
+func (e *VaultError) Is(target error) bool {
+	return target == e.kind || target == ErrVault || target == ErrConfig
 }

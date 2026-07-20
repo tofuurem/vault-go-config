@@ -18,12 +18,37 @@ func (function optionFunc) apply(options *loaderOptions) error {
 }
 
 type loaderOptions struct {
-	lookupEnv func(string) (string, bool)
-	jsonFile  string
+	lookupEnv   func(string) (string, bool)
+	jsonFile    string
+	vaultPolicy VaultFailurePolicy
 }
 
 func defaultLoaderOptions() loaderOptions {
-	return loaderOptions{lookupEnv: os.LookupEnv}
+	return loaderOptions{
+		lookupEnv:   os.LookupEnv,
+		vaultPolicy: VaultFailureStrict,
+	}
+}
+
+// VaultFailurePolicy controls whether a configured Vault failure stops a load.
+type VaultFailurePolicy string
+
+const (
+	// VaultFailureStrict returns typed Vault failures and is the default.
+	VaultFailureStrict VaultFailurePolicy = "strict"
+	// VaultFailureFallback explicitly treats a typed Vault failure as an empty source.
+	VaultFailureFallback VaultFailurePolicy = "fallback"
+)
+
+// WithVaultFailurePolicy selects strict or explicit fallback behavior.
+func WithVaultFailurePolicy(policy VaultFailurePolicy) Option {
+	return optionFunc(func(options *loaderOptions) error {
+		if policy != VaultFailureStrict && policy != VaultFailureFallback {
+			return &VaultError{CauseType: "unsupported failure policy", kind: ErrVaultConfiguration}
+		}
+		options.vaultPolicy = policy
+		return nil
+	})
 }
 
 // WithJSONFile selects an exact JSON file and takes precedence over

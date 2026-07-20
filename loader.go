@@ -10,7 +10,8 @@ import (
 // safe for concurrent calls when its configured sources are safe for
 // concurrent use.
 type Loader struct {
-	sources []configSource
+	sources    []configSource
+	vaultCache *vaultCache
 }
 
 // New creates a reusable configuration loader.
@@ -24,13 +25,26 @@ func New(options ...Option) (*Loader, error) {
 			return nil, err
 		}
 	}
-	return &Loader{sources: []configSource{
+	cache, err := newVaultCache()
+	if err != nil {
+		return nil, fmt.Errorf("%w: initialize Vault cache", ErrConfig)
+	}
+	loader := &Loader{vaultCache: cache}
+	loader.sources = []configSource{
 		jsonSource{
 			lookup:       configuration.lookupEnv,
 			explicitFile: configuration.jsonFile,
 		},
+		vaultSource{
+			lookup:  configuration.lookupEnv,
+			policy:  configuration.vaultPolicy,
+			factory: newAPIVaultClient,
+			retry:   defaultVaultRetry(),
+			cache:   cache,
+		},
 		environmentSource{lookup: configuration.lookupEnv},
-	}}, nil
+	}
+	return loader, nil
 }
 
 // Load returns a fully assembled configuration value with no programmatic
@@ -104,6 +118,14 @@ func (loader *Loader) Load(ctx context.Context, destination any) error {
 
 	destinationValue.Set(temporary)
 	return nil
+}
+
+// InvalidateVaultCache removes every cached Vault payload owned by this
+// Loader. It is safe to call concurrently with Load and on a nil Loader.
+func (loader *Loader) InvalidateVaultCache() {
+	if loader != nil && loader.vaultCache != nil {
+		loader.vaultCache.invalidate()
+	}
 }
 
 func newLoaderWithSources(sources ...configSource) *Loader {
