@@ -143,6 +143,8 @@ Available options are:
 
 - `WithJSONFile(path)` — use one exact JSON file;
 - `WithVaultFailurePolicy(VaultFailureStrict)` — explicit default behavior;
+- `WithLogger(logger)` — emit value-free operational events through a
+  caller-owned `*slog.Logger`;
 - `WithVaultFailurePolicy(VaultFailureFallback)` — treat a typed Vault failure
   as an empty source and continue to JSON/defaults.
 
@@ -336,6 +338,19 @@ address, mount, path, and an HMAC credential fingerprint made with a random
 per-loader key; raw credentials are never cache keys. Credential rotation
 naturally causes a miss.
 
+### Operational logging
+
+Pass `WithLogger(logger)` to receive structured Vault events for an absent
+source, cache hits, retry scheduling, and explicit fallback activation. The
+caller owns the logger, handler, output, filtering, and lifecycle; the library
+never installs or modifies global logging.
+
+Events contain only operational categories, attempt numbers, wait durations,
+and safe Vault mount/path identifiers where applicable. They never contain
+credentials, configuration values, payloads, response bodies, complete Vault
+addresses, or raw upstream errors. No logger means no emitted events. Passing
+a nil logger is a configuration error.
+
 ## Errors
 
 Use `errors.Is` for stable categories and `errors.As` for safe typed details:
@@ -368,7 +383,8 @@ configuration structs, or raw credentials.
 - Prefer a policy-scoped token, AppRole, or userpass identity with read access
   only to the required KV v2 path.
 - Do not print a complete configuration struct if it contains secrets.
-- The library does not install log handlers and emits no logs by default.
+- The library does not install log handlers and emits no logs unless a
+  caller-owned logger is supplied.
 - Use a context deadline around startup if Vault availability must be bounded.
 - Runtime online refresh is intentionally not provided: load at a controlled
   application boundary and decide explicitly when replacing live state is

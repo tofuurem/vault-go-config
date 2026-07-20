@@ -1,6 +1,8 @@
 package vltconfig
 
 import (
+	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 )
@@ -21,6 +23,7 @@ type loaderOptions struct {
 	lookupEnv   func(string) (string, bool)
 	jsonFile    string
 	vaultPolicy VaultFailurePolicy
+	logger      *slog.Logger
 }
 
 func defaultLoaderOptions() loaderOptions {
@@ -59,6 +62,18 @@ func WithJSONFile(path string) Option {
 			return &JSONError{CauseType: "empty path", kind: ErrJSON}
 		}
 		options.jsonFile = path
+		return nil
+	})
+}
+
+// WithLogger enables value-free operational events through a caller-owned
+// logger. The library never changes the logger's handler or level.
+func WithLogger(logger *slog.Logger) Option {
+	return optionFunc(func(options *loaderOptions) error {
+		if logger == nil {
+			return fmt.Errorf("%w: logger must not be nil", ErrConfig)
+		}
+		options.logger = logger
 		return nil
 	})
 }

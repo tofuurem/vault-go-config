@@ -14,10 +14,14 @@ func TestRetryUsesThreeAttemptsAndExponentialBackoff(t *testing.T) {
 
 	attempts := 0
 	waits := make([]time.Duration, 0, 2)
+	notifiedAttempts := make([]int, 0, 2)
 	retry := defaultVaultRetry()
 	retry.sleep = func(_ context.Context, duration time.Duration) error {
 		waits = append(waits, duration)
 		return nil
+	}
+	retry.notify = func(_ context.Context, failedAttempt int, _ time.Duration) {
+		notifiedAttempts = append(notifiedAttempts, failedAttempt)
 	}
 	err := retry.call(context.Background(), func() error {
 		attempts++
@@ -31,6 +35,9 @@ func TestRetryUsesThreeAttemptsAndExponentialBackoff(t *testing.T) {
 	}
 	if !reflect.DeepEqual(waits, []time.Duration{2 * time.Second, 4 * time.Second}) {
 		t.Fatalf("waits = %#v", waits)
+	}
+	if !reflect.DeepEqual(notifiedAttempts, []int{1, 2}) {
+		t.Fatalf("notified attempts = %#v", notifiedAttempts)
 	}
 }
 

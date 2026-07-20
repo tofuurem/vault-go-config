@@ -41,6 +41,7 @@ func New(options ...Option) (*Loader, error) {
 			factory: newAPIVaultClient,
 			retry:   defaultVaultRetry(),
 			cache:   cache,
+			logger:  configuration.logger,
 		},
 		environmentSource{lookup: configuration.lookupEnv},
 	}

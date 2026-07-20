@@ -13,6 +13,7 @@ type vaultRetry struct {
 	maxAttempts int
 	backoff     func(int) time.Duration
 	sleep       func(context.Context, time.Duration) error
+	notify      func(context.Context, int, time.Duration)
 }
 
 func defaultVaultRetry() vaultRetry {
@@ -37,7 +38,11 @@ func (retry vaultRetry) call(ctx context.Context, operation func() error) error 
 		if !isTransientVaultError(ctx, err) || attempt == retry.maxAttempts {
 			return err
 		}
-		if err := retry.sleep(ctx, retry.backoff(attempt)); err != nil {
+		delay := retry.backoff(attempt)
+		if retry.notify != nil {
+			retry.notify(ctx, attempt, delay)
+		}
+		if err := retry.sleep(ctx, delay); err != nil {
 			return err
 		}
 	}
