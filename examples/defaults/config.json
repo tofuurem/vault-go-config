@@ -1,0 +1,5 @@
+{
+  "http": {
+    "read_timeout": "8s"
+  }
+}

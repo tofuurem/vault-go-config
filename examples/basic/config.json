@@ -1,0 +1,5 @@
+{
+  "service_name": "example-api",
+  "port": 8080,
+  "debug": false
+}
